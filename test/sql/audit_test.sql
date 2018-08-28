@@ -8,7 +8,7 @@ CREATE TABLE foo (
   c INTEGER
 );
 
-SELECT audit.audit_table('foo', true, true, '{id}'::text[]);
+SELECT audit.audit_table('foo', true, '{id}'::text[]);
 
 --
 -- Basic INSERT/UPDATE/DELETE
@@ -16,15 +16,15 @@ SELECT audit.audit_table('foo', true, true, '{id}'::text[]);
 
 --- insert
 INSERT INTO foo (a, b, c) VALUES (1, 2, 3) RETURNING id AS record_id \gset
-SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
+SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 
 --- update
 UPDATE foo SET b = 99 WHERE id = :record_id;
-SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
+SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 
 --- delete
 DELETE FROM foo WHERE id = :record_id;
-SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
+SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 
 --
 -- With table modifications
@@ -32,21 +32,21 @@ SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
 
 --- insert
 INSERT INTO foo (a, b, c) VALUES (4, 5, 6) RETURNING id AS record_id \gset
-SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
+SELECT rpk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 
 --- add column to table and update record
 ALTER TABLE foo ADD COLUMN d INTEGER;
 UPDATE foo SET d = 7 WHERE id = :record_id;
-SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
+SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 
 --- remove column from table and update record
 ALTER TABLE foo DROP COLUMN d;
 UPDATE foo SET c = 99 WHERE id = :record_id;
-SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
+SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 
 --- delete
 DELETE FROM foo WHERE id = :record_id;
-SELECT row_data, changed_fields FROM audit.log ORDER BY id DESC LIMIT 1;
+SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 
 DROP TABLE foo;
 
