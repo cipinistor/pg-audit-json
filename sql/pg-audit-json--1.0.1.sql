@@ -155,6 +155,11 @@ CREATE TABLE audit.log (
 		id BIGSERIAL PRIMARY KEY,
 		schema_name TEXT NOT NULL,
 		table_name TEXT NOT NULL,
+		action TEXT NOT NULL CHECK (action IN ('I','D','U', 'T')),
+		table_pk JSONB,
+		old_values JSONB,
+		new_values JSONB,
+		client_query TEXT,
 		relid OID NOT NULL,
 		session_user_name TEXT NOT NULL,
 		current_user_name TEXT NOT NULL,
@@ -165,12 +170,7 @@ CREATE TABLE audit.log (
 		application_name TEXT,
 		application_user_name TEXT,
 		client_addr INET,
-		client_port INTEGER,
-		client_query TEXT,
-		action TEXT NOT NULL CHECK (action IN ('I','D','U', 'T')),
-		table_pk JSONB,
-		old_values JSONB,
-		new_values JSONB
+		client_port INTEGER
 );
 
 REVOKE ALL ON audit.log FROM public;
@@ -183,6 +183,16 @@ COMMENT ON COLUMN audit.log.schema_name
 	IS 'Database schema audited table for this event is in';
 COMMENT ON COLUMN audit.log.table_name
 	IS 'Non-schema-qualified table name of table event occured in';
+COMMENT ON COLUMN audit.log.action
+	IS 'Action type; I = insert, D = delete, U = update, T = truncate';
+COMMENT ON COLUMN audit.log.table_pk
+	IS 'PK values identifying the row affected by INSERT / UPDATE / DELETE. For TRUNCATE this is null.';
+COMMENT ON COLUMN audit.log.old_values
+	IS 'Old values of fields changed by UPDATE, or full row for DELETE. For INSERT / TRUNCATE this is null.';
+COMMENT ON COLUMN audit.log.new_values
+	IS 'New values of fields changed by UPDATE. For DELETE / INSERT / TRUNCATE this is null.';
+COMMENT ON COLUMN audit.log.client_query
+	IS 'Top-level query that caused this auditable event. May be more than one.';
 COMMENT ON COLUMN audit.log.relid
 	IS 'Table OID. Changes with drop/create. Get with ''tablename''::REGCLASS';
 COMMENT ON COLUMN audit.log.session_user_name
@@ -201,20 +211,10 @@ COMMENT ON COLUMN audit.log.client_addr
 	IS 'IP address of client that issued query. Null for unix domain socket.';
 COMMENT ON COLUMN audit.log.client_port
 	IS 'Port address of client that issued query. Undefined for unix socket.';
-COMMENT ON COLUMN audit.log.client_query
-	IS 'Top-level query that caused this auditable event. May be more than one.';
 COMMENT ON COLUMN audit.log.application_name
 	IS 'Client-set session application name when this audit event occurred.';
 COMMENT ON COLUMN audit.log.application_user_name
 	IS 'Client-set session application user when this audit event occurred.';
-COMMENT ON COLUMN audit.log.action
-	IS 'Action type; I = insert, D = delete, U = update, T = truncate';
-COMMENT ON COLUMN audit.log.table_pk
-	IS 'PK values identifying the row affected by INSERT / UPDATE / DELETE. For TRUNCATE this is null.';
-COMMENT ON COLUMN audit.log.old_values
-	IS 'Old values of fields changed by UPDATE, or full row for DELETE. For INSERT / TRUNCATE this is null.';
-COMMENT ON COLUMN audit.log.new_values
-	IS 'New values of fields changed by UPDATE. For DELETE / INSERT / TRUNCATE this is null.';
 
 CREATE INDEX idx_log_relid ON audit.log(relid);
 CREATE INDEX idx_log_action_tstamp_stm ON audit.log(action_tstamp_stm);
@@ -246,6 +246,11 @@ BEGIN
 		nextval('audit.log_id_seq'),										-- id
 		TG_TABLE_SCHEMA::TEXT,													-- schema_name
 		TG_TABLE_NAME::TEXT,														-- table_name
+		substring(TG_OP, 1, 1),													-- action
+		NULL,																						-- pk
+		NULL,																						-- old
+		NULL,																						-- new
+		current_query(),																-- top-level query or queries
 		TG_RELID,																				-- relation OID for faster searches
 		session_user::TEXT,															-- session_user_name
 		current_user::TEXT,															-- current_user_name
@@ -256,12 +261,7 @@ BEGIN
 		current_setting('audit.application_name', true),			-- client application
 		current_setting('audit.application_user_name', true),	-- client user name
 		inet_client_addr(),															-- client_addr
-		inet_client_port(),															-- client_port
-		current_query(),																-- top-level query or queries
-		substring(TG_OP, 1, 1),													-- action
-		NULL,																						-- pk
-		NULL,																						-- old
-		NULL																						-- new
+		inet_client_port()															-- client_port
 		);
 
 	pk_cols = TG_ARGV[0]::TEXT[];
