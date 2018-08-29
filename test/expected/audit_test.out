@@ -7,9 +7,9 @@ CREATE TABLE foo (
   c INTEGER
 );
 SELECT audit.audit_table('foo', true, '{id}'::text[]);
- audit_table
+ audit_table 
 -------------
-
+ 
 (1 row)
 
 --
@@ -17,26 +17,26 @@ SELECT audit.audit_table('foo', true, '{id}'::text[]);
 --
 --- insert
 INSERT INTO foo (a, b, c) VALUES (1, 2, 3) RETURNING id AS record_id \gset
-SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
-		pk		| 	old 		|	new
-----------+-----------+------------
-{"id": 1}	|						|
+SELECT table_pk, old_values, new_values FROM audit.log ORDER BY id DESC LIMIT 1;
+ table_pk  | old_values | new_values 
+-----------+------------+------------
+ {"id": 1} |            | 
 (1 row)
 
 --- update
 UPDATE foo SET b = 99 WHERE id = :record_id;
-SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
-		pk		| 	old 		|	new
-----------+-----------+------------
-{"id": 1}	|	{"b": 2}	|	{"b": 99}
+SELECT table_pk, old_values, new_values FROM audit.log ORDER BY id DESC LIMIT 1;
+ table_pk  | old_values | new_values 
+-----------+------------+------------
+ {"id": 1} | {"b": 2}   | {"b": 99}
 (1 row)
 
 --- delete
 DELETE FROM foo WHERE id = :record_id;
-SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
-		pk		| 			old 								|	new
-----------+---------------------------+------------
-{"id": 1}	| {"a": 1, "b": 99, "c": 3}	|
+SELECT table_pk, old_values, new_values FROM audit.log ORDER BY id DESC LIMIT 1;
+ table_pk  |        old_values         | new_values 
+-----------+---------------------------+------------
+ {"id": 1} | {"a": 1, "b": 99, "c": 3} | 
 (1 row)
 
 --
@@ -44,36 +44,36 @@ SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
 --
 --- insert
 INSERT INTO foo (a, b, c) VALUES (4, 5, 6) RETURNING id AS record_id \gset
-SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
-		pk		| 	old 		|	new
-----------+-----------+------------
-{"id": 2}	|						|
+SELECT table_pk, old_values, new_values FROM audit.log ORDER BY id DESC LIMIT 1;
+ table_pk  | old_values | new_values 
+-----------+------------+------------
+ {"id": 2} |            | 
 (1 row)
 
 --- add column to table and update record
 ALTER TABLE foo ADD COLUMN d INTEGER;
 UPDATE foo SET d = 7 WHERE id = :record_id;
-SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
-		pk		| 	old 		|	new
-----------+-----------+------------
-{"id": 2}	|						|	{"d": 7}
+SELECT table_pk, old_values, new_values FROM audit.log ORDER BY id DESC LIMIT 1;
+ table_pk  | old_values  | new_values 
+-----------+-------------+------------
+ {"id": 2} | {"d": null} | {"d": 7}
 (1 row)
 
 --- remove column from table and update record
 ALTER TABLE foo DROP COLUMN d;
 UPDATE foo SET c = 99 WHERE id = :record_id;
-SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
-		pk		| 	old 		|	new
-----------+-----------+------------
-{"id": 2}	| {"c": 6}	|	{"c": 99}
+SELECT table_pk, old_values, new_values FROM audit.log ORDER BY id DESC LIMIT 1;
+ table_pk  | old_values | new_values 
+-----------+------------+------------
+ {"id": 2} | {"c": 6}   | {"c": 99}
 (1 row)
 
 --- delete
 DELETE FROM foo WHERE id = :record_id;
-SELECT pk, old, new FROM audit.log ORDER BY id DESC LIMIT 1;
-		pk		| 			old 								|	new
-----------+---------------------------+------------
-{"id": 2}	| {"a": 4, "b": 5, "c": 99}	|
+SELECT table_pk, old_values, new_values FROM audit.log ORDER BY id DESC LIMIT 1;
+ table_pk  |        old_values         | new_values 
+-----------+---------------------------+------------
+ {"id": 2} | {"a": 4, "b": 5, "c": 99} | 
 (1 row)
 
 DROP TABLE foo;

@@ -1,17 +1,23 @@
 CREATE EXTENSION "pg-audit-json";
 -- Extract json for one key
-SELECT json_extract('{"a": 1, "b": 2, "c": 3}'::jsonb, '{a}'::text[]);
-  ?column?
-------------
+SELECT jsonb_extract('{"a": 1, "b": 2, "c": 3}'::jsonb, '{a}'::text[]);
+ jsonb_extract 
+---------------
  {"a": 1}
 (1 row)
 
 -- Extract json for multiple keys
-SELECT json_extract('{"a": 1, "b": 2, "c": 3}'::jsonb, '{a,c}'::text[]);
-			?column?
--------------------
+SELECT jsonb_extract('{"a": 1, "b": 2, "c": 3}'::jsonb, '{a,c}'::text[]);
+  jsonb_extract   
+------------------
  {"a": 1, "c": 3}
 (1 row)
 
+-- Extract json for no key 
+SELECT jsonb_extract('{"a": 1, "b": 2, "c": 3}'::jsonb, '{}'::text[]);
+ jsonb_extract 
+---------------
+ 
+(1 row)
 
 DROP EXTENSION "pg-audit-json";
