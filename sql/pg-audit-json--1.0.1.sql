@@ -114,18 +114,18 @@ AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION "jsonb_extract" ( json_data JSONB, keys TEXT[] )
-  RETURNS JSONB
-  LANGUAGE SQL
+	RETURNS JSONB
+	LANGUAGE SQL
 	IMMUTABLE
-  STRICT
+	STRICT
 AS $$
-  SELECT
-    json_object_agg(
-      key,
- 	  	json_data #> ARRAY[key]
-    )::JSONB
-  FROM
-      unnest(keys) AS key
+	SELECT
+		json_object_agg(
+			key,
+			json_data #> ARRAY[key]
+		)::JSONB
+	FROM
+		unnest(keys) AS key
 $$;
 
 
