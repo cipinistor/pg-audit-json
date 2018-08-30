@@ -156,7 +156,7 @@ CREATE TABLE audit.log (
 		schema_name TEXT NOT NULL,
 		table_name TEXT NOT NULL,
 		action TEXT NOT NULL CHECK (action IN ('I','D','U', 'T')),
-		table_pk JSONB,
+		row_pk JSONB,
 		old_values JSONB,
 		new_values JSONB,
 		client_query TEXT,
@@ -185,8 +185,8 @@ COMMENT ON COLUMN audit.log.table_name
 	IS 'Non-schema-qualified table name of table event occured in';
 COMMENT ON COLUMN audit.log.action
 	IS 'Action type; I = insert, D = delete, U = update, T = truncate';
-COMMENT ON COLUMN audit.log.table_pk
-	IS 'PK values identifying the row affected by INSERT / UPDATE / DELETE. For TRUNCATE this is null.';
+COMMENT ON COLUMN audit.log.row_pk
+	IS 'PK identifying the row affected by INSERT / UPDATE / DELETE. For TRUNCATE this is null.';
 COMMENT ON COLUMN audit.log.old_values
 	IS 'Old values of fields changed by UPDATE, or full row for DELETE. For INSERT / TRUNCATE this is null.';
 COMMENT ON COLUMN audit.log.new_values
@@ -277,7 +277,7 @@ BEGIN
 
 	IF (TG_OP = 'INSERT' AND TG_LEVEL = 'ROW') THEN
 		new_values = to_jsonb(NEW.*);
-		audit_row.table_pk = jsonb_extract(new_values, pk_cols);
+		audit_row.row_pk = jsonb_extract(new_values, pk_cols);
 	ELSIF (TG_OP = 'UPDATE' AND TG_LEVEL = 'ROW') THEN
 		new_values = to_jsonb(NEW.*);
 		old_values = to_jsonb(OLD.*);
@@ -286,12 +286,12 @@ BEGIN
 			-- All changed fields are ignored. Skip this update.
 			RETURN NULL;
 		ELSE
-			audit_row.table_pk = jsonb_extract(old_values, pk_cols);
+			audit_row.row_pk = jsonb_extract(old_values, pk_cols);
 			audit_row.old_values = (old_values - new_values) - excluded_cols;
 		END IF;
 	ELSIF (TG_OP = 'DELETE' AND TG_LEVEL = 'ROW') THEN
 		old_values = to_jsonb(OLD.*);
-		audit_row.table_pk = jsonb_extract(old_values, pk_cols);
+		audit_row.row_pk = jsonb_extract(old_values, pk_cols);
 		audit_row.old_values = old_values - excluded_cols;
 	ELSIF (TG_LEVEL = 'STATEMENT' AND TG_OP = 'TRUNCATE') THEN
 		--on truncate, table is emptied, so there's nothing row-related to log
