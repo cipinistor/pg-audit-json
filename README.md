@@ -12,8 +12,15 @@ This trigger is a fork of [2ndQuadrant's audit trigger][1] implementation.
 Significant changes made from original work:
 * Usage of JSONB instead of HSTORE
 * Slight table/column name differences
-* INSERT values are stored in the `changed_fields` instead of `row_data` to
-  indicate that a new record is an entire change.
+* ~~INSERT values are stored in the `changed_fields` instead of `row_data` to
+  indicate that a new record is an entire change.~~
+
+**Custom audit** changes:
+*	Table/column name differences
+* On INSERT, only the row pk is stored in `row_pk`
+* On UPDATE, along with the row pk, only the fields that actually changed are stored in `old_values` and `new_values`
+* On DELETE, along with the row pk, the entire row is stored in `old_values`
+
 
 
 ## Audit Table Reference
@@ -23,6 +30,11 @@ Column | Type | Not&nbsp;Null | Description
 `id` | `BIGINT` | &#x2611;  | Unique identifier for each auditable event
 `schema_name` | `TEXT` | &#x2611;  | Database schema audited table for this event is in
 `table_name` | `TEXT` | &#x2611;  | Non-schema-qualified table name of table event occured in
+`action` | `ENUM` | &#x2611;  | Action type <br /> `I` = insert <br />`D` = delete<br /> `U` = update<br/>`T` = truncate
+`row_pk` | `JSONB` | | PK identifying the row affected by INSERT / UPDATE / DELETE. <br /> For TRUNCATE this is null.
+`old_values` | `JSONB` | | Old values of fields changed by UPDATE, or full row for DELETE. <br /> For INSERT / TRUNCATE this is null.
+`new_values` | `JSONB` | | New values of fields changed by UPDATE. <br /> For DELETE / INSERT / TRUNCATE this is null.
+`client_query` | `TEXT` | | Top-level query that caused this auditable event. <br />May be more than one.
 `relid` | `OID` | &#x2611;  | Table OID. Changes with drop/create.
 `session_user_name` | `TEXT` | &#x2611; | Login / session user whose statement caused the audited event
 `current_user_name` | `TEXT` | &#x2611; | Effective user that cased audited event (if authorization level changed)
@@ -32,13 +44,8 @@ Column | Type | Not&nbsp;Null | Description
 `transaction_id` | `BIGINT` | &#x2611; | Identifier of transaction that made the change. <br />Unique when paired with `action_tstamp_tx.`
 `client_addr` | `INET` | | IP address of client that issued query. Null for unix domain socket.
 `client_port` | `INTEGER` | | Port address of client that issued query. <br />Undefined for unix socket.
-`client_query` | `TEXT` | | Top-level query that caused this auditable event. <br />May be more than one.
 `application_name` | `TEXT` | | Client-set session application name when this audit event occurred.
 `application_user` | `TEXT` | | Client-set session application user when this audit event occurred.<br /> This is useful if the application uses its own user-management and authorization system.
-`action` | `ENUM` | &#x2611;  | Action type <br /> `I` = insert <br />`D` = delete<br /> `U` = update<br/>`T` = truncate
-`row_data` | `JSONB` | | Record value. Null for statement-level trigger.<br />For INSERT this is null becuase there was nothing there before.<br /> For DELETE and UPDATE it is the old tuple.
-`changed_fields` | `JSONB` | | New values of fields for INSERT or those changed by UPDATE (i.e a diff). <br /> Null for DELETE.
-`statement_only` | `BOOLEAN` | &#x2611;  | `t` if audit event is from an FOR EACH STATEMENT trigger <br /> `f` for FOR EACH ROW
 
 
 ## Installation
@@ -85,7 +92,7 @@ SELECT audit.audit_table('mytable');
 SELECT audit.audit_table('myschema.mytable');
 
 -- Ignore columns "foo" and "bar"
-SELECT audit.audit_table('mytable', true, true, '{foo,bar}');
+SELECT audit.audit_table('mytable', true, '{foo,bar}');
 ```
 
 ### Setting application runtime variables
